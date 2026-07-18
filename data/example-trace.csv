@@ -1,0 +1,7 @@
+workflow_id,task_id,arrival_time,duration,cpu_utilization,predecessors,benchmark,deadline,pattern,state_size_gb
+0,0,0,900,0.35,,Example,7200,RAMP,0.2
+0,1,0,1200,0.62,0,Example,7200,BURSTY,0.8
+0,2,0,750,0.48,0,Example,7200,STEP,0.4
+0,3,0,1500,0.71,1|2,Example,7200,TRACE_DRIVEN,1.1
+1,4,600,800,0.42,,Example,6000,RAMP,0.3
+1,5,600,1100,0.68,4,Example,6000,BURSTY,0.9

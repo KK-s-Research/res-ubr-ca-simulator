@@ -1,0 +1,570 @@
+% Rewritten Section VII generated from the 20-seed results under output/.
+% Required packages: graphicx, booktabs, amsmath.
+% The paths below assume that the main LaTeX document is compiled from the
+% repository root. Adjust the paths if this file is copied elsewhere.
+
+\section{Experimental Setup, Results, and Discussion}
+\label{sec:experiments}
+
+This section evaluates the Unified Bayesian-Robust Credit-Aware
+Scheduler (UBR-CA) with respect to execution cost, deadline compliance,
+CPU-credit safety, migration overhead, parameter sensitivity, and
+scalability. The study addresses the following research questions:
+\emph{RQ1}: What execution-cost overhead or saving does UBR-CA produce
+relative to conventional workflow and credit-aware schedulers?
+\emph{RQ2}: Does robust credit-aware scheduling improve workflow
+deadline compliance?
+\emph{RQ3}: How effectively does UBR-CA prevent credit exhaustion under
+increasing credit stress?
+\emph{RQ4}: What are the individual contributions of Bayesian
+uncertainty learning and proactive migration?
+\emph{RQ5}: How sensitive is the method to its principal control
+parameters, and does it remain practical for large workflows?
+
+\subsection{Experimental Protocol and Workloads}
+\label{subsec:protocol}
+
+The numerical results reported in this section were obtained from
+benchmark-shaped synthetic workflow DAGs with Montage, Epigenomics,
+LIGO, and production-trace-like structural characteristics. The
+workload generator preserves the principal differences among these
+classes: Montage-like workflows have broad parallel stages,
+Epigenomics-like workflows combine chains and branches, LIGO-like
+workflows contain deeper dependency paths, and the production-like
+class uses randomized acyclic precedence relations. Each default run
+contains eight concurrently arriving workflows with approximately 90
+tasks per workflow. A deadline is assigned as 1.55 times the
+workflow's nominal critical-path duration.
+
+The implementation also provides a CSV importer for replaying
+preprocessed Alibaba Cluster Trace workflows. However, no processed
+Alibaba trace was supplied to the reported run. Consequently, the
+values below must be interpreted as synthetic benchmark results and
+must not be described as Alibaba trace measurements. The trace importer
+can regenerate the complete table and figure set when trace-backed
+tasks, arrivals, utilization values, and dependencies are available.
+
+Scalability experiments use the workflow-size categories in
+Table~\ref{tab:workflow-sizes}. The largest experiment contains 50,000
+tasks.
+
+\begin{table}[t]
+\centering
+\caption{Workflow size categories used in the evaluation.}
+\label{tab:workflow-sizes}
+\begin{tabular}{lr}
+\toprule
+Category & Number of tasks \\
+\midrule
+Small  & 50--200 \\
+Medium & 500--2,000 \\
+Large  & 5,000--50,000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Utilization and Credit-Stress Models}
+\label{subsec:workload-models}
+
+Four time-varying CPU-utilization models are used. The step model
+changes abruptly from a low- to a high-utilization phase. The ramp
+model increases utilization progressively over task execution. The
+bursty model alternates low- and high-utilization phases, while the
+trace-driven model superposes multiple temporal components to emulate
+irregular production demand. Seeded perturbations and a bounded
+co-location interference term are added to each model. Utilization is
+clipped to the feasible interval $[0,1]$.
+
+Three credit-stress regimes are evaluated. Under light stress,
+aggregate demand exceeds baseline capacity infrequently. Moderate
+stress is the default configuration and contains intermittent
+above-baseline phases. Heavy stress introduces sustained high-demand
+periods that rapidly deplete credits under credit-oblivious placement.
+Credit is represented in vCPU-minutes, and the simulator applies the
+credit evolution model in Eq.~(6) at every scheduling interval.
+
+\subsection{Compared Scheduling Methods}
+\label{subsec:baselines}
+
+UBR-CA is compared with six references. HEFT performs
+precedence-aware earliest-finish placement without modeling credits.
+Kubernetes Resource Packing (KRP) performs deterministic CPU
+bin-packing. Energy-Aware VM Consolidation (EA-VC) aggressively
+consolidates tasks to reduce fragmentation. The Chance-Constrained
+Scheduler (CCS) protects VM capacity using a fixed uncertainty bound
+but does not model credit depletion. The Credit-Aware Reactive
+Scheduler (CARS) reacts after a credit threshold is crossed. A
+strict-feasibility branch-and-bound proxy provides a small-instance
+reference for the robust placement rules.
+
+The branch-and-bound result is a feasibility reference rather than a
+claim of a globally optimal mixed-integer solution for large
+workflows. Therefore, it is denoted ``B\&B proxy'' rather than
+``MILP'' throughout this section. Two UBR-CA ablations are also
+evaluated: one disables migration, and the other replaces Bayesian
+posterior learning with deterministic utilization estimates.
+
+\subsection{Implementation, Parameters, and Metrics}
+\label{subsec:implementation}
+
+The simulator and all schedulers were implemented in Java~21. The
+implementation uses a discrete-event control loop with a default
+scheduling interval of $\Delta t=300$~s, lookahead horizon $H=2$, and
+risk tolerance $\epsilon=0.05$, corresponding to a 95\% one-sided
+Bayesian bound. The prior variance is 0.04, the observation variance is
+0.0225, the migration trigger is six credits, and the safe recovery
+level is 12 credits. Table~\ref{tab:sensitivity-config} lists the
+parameter values used in the sensitivity study.
+
+\begin{table}[t]
+\centering
+\caption{Sensitivity-analysis configurations.}
+\label{tab:sensitivity-config}
+\begin{tabular}{ll}
+\toprule
+Parameter & Values \\
+\midrule
+$\Delta t$ & $\{60,300,900\}$ s \\
+$H$ & $\{1,2,4\}$ \\
+$\epsilon$ & $\{0.01,0.05,0.10\}$ \\
+$\lambda$ & $\{10,100,1000\}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Execution cost is the sum of VM price multiplied by active duration.
+Deadline violation rate is the fraction of workflows that complete
+after their deadlines, and total lateness is the sum of positive
+completion-time excesses. A credit-exhaustion event is counted when a
+VM enters an interval in which available credits cannot sustain its
+above-baseline demand. Migration count records all completed
+container migrations. Scheduler runtime measures CPU time spent in
+placement, monitoring, and migration decisions; it excludes workload
+execution time and artifact generation.
+
+Every comparison is repeated using 20 seeds. A workflow set is
+generated once per seed and cloned for every scheduler, producing
+paired observations. Results are reported as mean $\pm$ sample
+standard deviation. Cost comparisons use paired Student's $t$-tests,
+Wilcoxon signed-rank tests, and paired Cohen's $d$ at a significance
+level of $0.05$. All per-seed observations are retained in the
+reproducibility package.
+
+\subsection{Overall Performance}
+\label{subsec:overall}
+
+Table~\ref{tab:overall-performance} summarizes the default moderate
+stress results. UBR-CA completed all workflows without deadline
+violations and reduced mean credit-exhaustion events to
+$2.10\pm1.21$. HEFT, KRP, EA-VC, and CCS each violated the deadlines
+of approximately half of the workflows. CARS also met all deadlines,
+but incurred $10.60\pm2.28$ credit-exhaustion events and
+$95.45\pm16.66$ migrations. UBR-CA therefore reduced exhaustion
+events by 80.19\% and migrations by 46.10\% relative to CARS.
+
+The B\&B proxy and UBR-CA selected the same strict-feasibility
+decisions in this configuration and consequently produced identical
+execution metrics. This agreement is specific to the tested workload;
+it does not establish global optimality for larger instances.
+
+\begin{table*}[t]
+\centering
+\caption{Overall performance under moderate credit stress
+(mean $\pm$ standard deviation over 20 paired seeds).}
+\label{tab:overall-performance}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+Method & Cost (USD) & Deadline violations (\%) &
+Credit exhaustions & Migrations & Runtime (s) \\
+\midrule
+HEFT        & $7.874\pm0.498$ & $50.00\pm0.00$ & $8.15\pm3.15$  & $0.00\pm0.00$   & $0.0228\pm0.0373$ \\
+KRP         & $7.830\pm0.488$ & $50.00\pm0.00$ & $7.80\pm4.06$  & $0.00\pm0.00$   & $0.0157\pm0.0155$ \\
+EA-VC       & $7.830\pm0.488$ & $50.00\pm0.00$ & $7.80\pm4.06$  & $0.00\pm0.00$   & $0.0157\pm0.0145$ \\
+CCS         & $7.805\pm0.493$ & $50.00\pm0.00$ & $9.35\pm3.79$  & $0.00\pm0.00$   & $0.0163\pm0.0140$ \\
+CARS        & $7.802\pm0.519$ & $0.00\pm0.00$  & $10.60\pm2.28$ & $95.45\pm16.66$ & $0.0149\pm0.0194$ \\
+B\&B proxy  & $7.972\pm0.521$ & $0.00\pm0.00$  & $2.10\pm1.21$  & $51.45\pm9.23$  & $0.0198\pm0.0301$ \\
+UBR-CA      & $7.972\pm0.521$ & $0.00\pm0.00$  & $2.10\pm1.21$  & $51.45\pm9.23$  & $0.0157\pm0.0201$ \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\subsection{Execution-Cost Analysis}
+\label{subsec:cost}
+
+Figure~\ref{fig:normalized-cost} reports cost normalized to HEFT.
+All methods lie within a narrow cost band. UBR-CA incurred
+$7.972\pm0.521$ USD, compared with $7.874\pm0.498$ USD for HEFT and
+$7.802\pm0.519$ USD for CARS. Thus, the safety and deadline gains of
+UBR-CA were obtained with a 1.25\% mean cost premium over HEFT and a
+2.18\% premium over CARS in the synthetic default workload.
+
+This result does not support an unconditional claim that UBR-CA
+reduces cloud cost. Rather, it demonstrates a cost-safety trade-off:
+the robust reserve and recovery migrations modestly increase billed
+VM time while substantially reducing throttling risk and deadline
+failure. A claim of cost reduction should be made only if a
+trace-backed experiment using the supplied Alibaba importer produces
+that outcome.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{output/figures/figure_1_normalized_execution_cost.png}
+\caption{Normalized workflow execution cost. Error bars show one
+sample standard deviation across 20 paired seeds. The distributed
+artifact is also available as an editable SVG and a 1600$\times$960
+PNG; convert the SVG to PDF for vector inclusion if required.}
+\label{fig:normalized-cost}
+\end{figure}
+
+\subsection{Workflow Deadline Compliance}
+\label{subsec:deadline}
+
+Table~\ref{tab:deadline-performance} shows that HEFT, KRP, EA-VC, and
+CCS each produced a 50\% mean violation rate. Their lateness differed
+substantially: HEFT incurred $47{,}845.3\pm11{,}952.5$~s, while KRP
+and EA-VC incurred $134{,}653.5\pm11{,}272.0$~s. Capacity uncertainty
+alone was insufficient: CCS still accumulated
+$101{,}724.2\pm7{,}066.6$~s of lateness because it did not protect
+future credit availability.
+
+CARS and UBR-CA both completed all workflows before their deadlines.
+The distinction between them is therefore not deadline compliance in
+this configuration, but the number of unsafe credit states and
+corrective migrations. Across all 20 pairs, UBR-CA improved the
+deadline outcome relative to HEFT, KRP, EA-VC, and CCS. Because these
+paired deadline differences have zero sample variance, a standardized
+parametric effect size is ill-conditioned; the corresponding exact
+two-sided sign-test probability is below $0.001$.
+
+\begin{table}[t]
+\centering
+\caption{Workflow deadline performance
+(mean $\pm$ standard deviation).}
+\label{tab:deadline-performance}
+\scriptsize
+\begin{tabular}{lrr}
+\toprule
+Method & Violation rate (\%) & Total lateness (s) \\
+\midrule
+HEFT   & $50.00\pm0.00$ & $47{,}845.3\pm11{,}952.5$ \\
+KRP    & $50.00\pm0.00$ & $134{,}653.5\pm11{,}272.0$ \\
+EA-VC  & $50.00\pm0.00$ & $134{,}653.5\pm11{,}272.0$ \\
+CCS    & $50.00\pm0.00$ & $101{,}724.2\pm7{,}066.6$ \\
+CARS   & $0.00\pm0.00$  & $0.0\pm0.0$ \\
+UBR-CA & $0.00\pm0.00$  & $0.0\pm0.0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Credit Dynamics and Stress Robustness}
+\label{subsec:credits}
+
+Figure~\ref{fig:credit-trajectory} shows the minimum, mean, and
+maximum credit balances across active VMs for one representative
+UBR-CA run. The lower trajectory approaches the migration threshold
+during early high-demand phases, after which proactive redistribution
+restores a positive reserve. The saw-tooth behavior of the upper
+trajectory results from credit accumulation on lightly loaded VMs and
+the subsequent retirement or reuse of those instances. Most
+importantly, the lower trajectory does not exhibit sustained
+zero-credit operation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{output/figures/figure_2_credit_trajectory.png}
+\caption{Representative minimum, mean, and maximum CPU-credit
+trajectories across active VMs under UBR-CA.}
+\label{fig:credit-trajectory}
+\end{figure}
+
+Table~\ref{tab:credit-stress} and Fig.~\ref{fig:credit-stress} quantify
+the effect of increasing stress. Under heavy stress, HEFT, KRP, and
+CCS produced between 40.05 and 44.05 exhaustion events on average.
+UBR-CA limited this value to $3.45\pm1.70$, corresponding to a 91.39\%
+reduction relative to HEFT and a 91.85\% reduction relative to CCS.
+Compared with CARS under heavy stress, UBR-CA reduced exhaustion
+events by 69.20\%, while preserving zero deadline violations.
+The heavy-stress safety gain carried a 4.47\% cost premium over HEFT
+and a 0.57\% premium over CARS.
+
+\begin{table*}[t]
+\centering
+\caption{Performance across credit-stress regimes
+(mean $\pm$ standard deviation).}
+\label{tab:credit-stress}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrr}
+\toprule
+Stress & Method & Cost (USD) & Violations (\%) & Exhaustions \\
+\midrule
+Light & HEFT   & $7.073\pm0.487$ & $50.00\pm0.00$ & $6.20\pm1.91$ \\
+      & KRP    & $7.058\pm0.499$ & $50.00\pm0.00$ & $4.55\pm1.47$ \\
+      & CCS    & $7.051\pm0.491$ & $50.00\pm0.00$ & $4.65\pm0.93$ \\
+      & CARS   & $6.918\pm0.471$ & $0.00\pm0.00$  & $12.10\pm2.00$ \\
+      & UBR-CA, no migration & $7.100\pm0.545$ & $0.00\pm0.00$ & $8.35\pm1.66$ \\
+      & UBR-CA & $7.224\pm0.492$ & $0.00\pm0.00$  & $3.45\pm1.57$ \\
+\midrule
+Moderate & HEFT & $7.874\pm0.498$ & $50.00\pm0.00$ & $8.15\pm3.15$ \\
+         & KRP  & $7.830\pm0.488$ & $50.00\pm0.00$ & $7.80\pm4.06$ \\
+         & CCS  & $7.805\pm0.493$ & $50.00\pm0.00$ & $9.35\pm3.79$ \\
+         & CARS & $7.802\pm0.519$ & $0.00\pm0.00$  & $10.60\pm2.28$ \\
+         & UBR-CA, no migration & $7.855\pm0.553$ & $0.00\pm0.00$ & $13.20\pm2.26$ \\
+         & UBR-CA & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+\midrule
+Heavy & HEFT   & $8.743\pm0.529$ & $50.00\pm0.00$ & $40.05\pm9.38$ \\
+      & KRP    & $8.832\pm0.477$ & $55.00\pm6.28$ & $44.05\pm7.56$ \\
+      & CCS    & $8.759\pm0.493$ & $50.00\pm0.00$ & $42.35\pm6.44$ \\
+      & CARS   & $9.082\pm0.479$ & $0.00\pm0.00$  & $11.20\pm3.37$ \\
+      & UBR-CA, no migration & $9.022\pm0.498$ & $0.00\pm0.00$ & $16.00\pm2.62$ \\
+      & UBR-CA & $9.134\pm0.486$ & $0.00\pm0.00$  & $3.45\pm1.70$ \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{output/figures/figure_9_credit_stress.png}
+\caption{Mean credit-exhaustion events under light, moderate, and
+heavy stress.}
+\label{fig:credit-stress}
+\end{figure}
+
+\subsection{Ablation Study}
+\label{subsec:ablation}
+
+Table~\ref{tab:ablation} isolates the two major UBR-CA components.
+Disabling migration increased credit-exhaustion events from
+$2.10\pm1.21$ to $13.20\pm2.26$; equivalently, the full method reduced
+exhaustion by 84.09\% relative to the no-migration variant, even though
+all workflows still met their deadlines. This result shows that
+robust initial placement alone cannot absorb all subsequent
+utilization changes.
+
+Replacing Bayesian learning with deterministic estimates reduced mean
+cost from 7.972 to 7.818 USD but increased exhaustion events from 2.10
+to 8.70 and migrations from 51.45 to 77.15. Hence Bayesian uncertainty
+learning did not reduce monetary cost in this run; instead, it improved
+credit safety and reduced corrective actions. Relative to the
+deterministic variant, the full method reduced exhaustion by 75.86\%
+and migration count by 33.31\%, at a 1.97\% cost premium. These
+absolute metrics provide a more informative ablation than a
+percentage deadline-reduction column because all three UBR-CA variants
+had zero deadline violations.
+
+\begin{table*}[t]
+\centering
+\caption{Ablation of Bayesian learning and migration
+(mean $\pm$ standard deviation).}
+\label{tab:ablation}
+\scriptsize
+\begin{tabular}{lrrrr}
+\toprule
+Variant & Cost (USD) & Violations (\%) & Exhaustions & Migrations \\
+\midrule
+UBR-CA without migration &
+$7.855\pm0.553$ & $0.00\pm0.00$ & $13.20\pm2.26$ & $0.00\pm0.00$ \\
+UBR-CA without Bayesian learning &
+$7.818\pm0.480$ & $0.00\pm0.00$ & $8.70\pm2.34$ & $77.15\pm16.53$ \\
+Full UBR-CA &
+$7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ & $51.45\pm9.23$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Parameter Sensitivity}
+\label{subsec:sensitivity}
+
+Table~\ref{tab:sensitivity-results} presents the complete sensitivity
+results. The scheduling interval exhibits the strongest trade-off.
+At $\Delta t=60$~s, mean cost was lowest, but the configured
+short-horizon reserve admitted $18.80\pm4.63$ exhaustion events. A
+300-s interval reduced this value to $2.10\pm1.21$. At 900~s,
+exhaustion was nearly eliminated, but delayed decision epochs raised
+cost to $8.931\pm0.524$, 12.03\% above the 300-s setting.
+
+Increasing $H$ strengthened credit protection. Moving from $H=1$ to
+$H=2$ reduced exhaustion from 8.85 to 2.10 events, while $H=4$
+eliminated exhaustion at a 1.47\% cost increase over $H=2$. The risk
+parameter behaved as expected: $\epsilon=0.01$ produced fewer
+exhaustions than $\epsilon=0.10$ (1.95 versus 2.85), but cost 1.33\%
+more. Varying $\lambda$ did not change the result because every
+UBR-CA workflow met its deadline; consequently, the lateness term was
+inactive throughout these runs.
+
+\begin{table*}[t]
+\centering
+\caption{UBR-CA parameter sensitivity
+(mean $\pm$ standard deviation).}
+\label{tab:sensitivity-results}
+\scriptsize
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrr}
+\toprule
+Parameter & Value & Cost (USD) & Violations (\%) & Exhaustions \\
+\midrule
+$\Delta t$ (s) & 60  & $7.820\pm0.445$ & $0.00\pm0.00$ & $18.80\pm4.63$ \\
+               & 300 & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+               & 900 & $8.931\pm0.524$ & $0.00\pm0.00$ & $0.05\pm0.22$ \\
+\midrule
+$H$ & 1 & $7.958\pm0.540$ & $0.00\pm0.00$ & $8.85\pm2.58$ \\
+    & 2 & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+    & 4 & $8.089\pm0.549$ & $0.00\pm0.00$ & $0.00\pm0.00$ \\
+\midrule
+$\epsilon$ & 0.01 & $8.018\pm0.523$ & $0.00\pm0.00$ & $1.95\pm1.47$ \\
+           & 0.05 & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+           & 0.10 & $7.913\pm0.573$ & $0.00\pm0.00$ & $2.85\pm1.18$ \\
+\midrule
+$\lambda$ & 10   & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+          & 100  & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+          & 1000 & $7.972\pm0.521$ & $0.00\pm0.00$ & $2.10\pm1.21$ \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+Figure~\ref{fig:sensitivity-panels} visualizes these four parameter
+sweeps. Because cost, violation rate, and exhaustion count use
+different units, the table should be used for precise comparison; the
+plots show trends rather than a common-scale objective.
+
+\begin{figure*}[t]
+\centering
+\begin{minipage}{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{output/figures/figure_4_sensitivity_interval_seconds.png}\\[-1mm]
+\small (a) Scheduling interval
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{output/figures/figure_5_sensitivity_lookahead_H.png}\\[-1mm]
+\small (b) Lookahead horizon
+\end{minipage}
+
+\vspace{1mm}
+\begin{minipage}{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{output/figures/figure_6_sensitivity_epsilon.png}\\[-1mm]
+\small (c) Risk tolerance
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth]{output/figures/figure_7_sensitivity_lateness_lambda.png}\\[-1mm]
+\small (d) Lateness penalty
+\end{minipage}
+\caption{Sensitivity of UBR-CA to its main control parameters.}
+\label{fig:sensitivity-panels}
+\end{figure*}
+
+\subsection{Bayesian Uncertainty Convergence}
+\label{subsec:posterior-convergence}
+
+Figure~\ref{fig:posterior-convergence} illustrates the analytical
+posterior-variance contraction used by the scheduler. Both the
+posterior standard deviation and the 95\% uncertainty half-width
+decrease monotonically as utilization observations accumulate. The
+result explains why UBR-CA can reserve additional capacity during a
+task's poorly observed initial phase and reduce estimation
+conservatism later. The ablation results show that this calibration
+primarily improves credit safety and migration efficiency in the
+present workload rather than reducing cost.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{output/figures/figure_8_bayesian_convergence.png}
+\caption{Posterior standard deviation and 95\% uncertainty half-width
+as the number of task-utilization observations increases.}
+\label{fig:posterior-convergence}
+\end{figure}
+
+\subsection{Scalability}
+\label{subsec:scalability}
+
+Figure~\ref{fig:scalability} reports the scheduler CPU time as workflow
+size increases. UBR-CA required 0.000082~s for 50 tasks,
+0.001348~s for 200 tasks, 0.002285~s for 500 tasks, 0.011746~s for
+2,000 tasks, 0.045420~s for 5,000 tasks, 0.208469~s for 10,000 tasks,
+and 2.033631~s for 50,000 tasks. The measured growth is consistent
+with the placement and migration complexity in Eq.~(84), while
+remaining well below the 300-s default scheduling interval at every
+tested scale. These values measure scheduler computation only and
+should not be interpreted as end-to-end workflow simulation time.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{output/figures/figure_3_scheduler_scalability.png}
+\caption{UBR-CA scheduler CPU time versus workflow size. The horizontal
+axis uses a logarithmic scale.}
+\label{fig:scalability}
+\end{figure}
+
+\subsection{Statistical Analysis}
+\label{subsec:statistics}
+
+Table~\ref{tab:cost-significance} reports paired tests for execution
+cost. The comparison with HEFT is not significant at the 0.05 level
+($p=0.0610$). The comparisons with KRP, CCS, and CARS are significant,
+but the positive paired Cohen's $d$ values indicate that the
+difference is a UBR-CA cost premium, not a cost saving. This direction
+must be retained when interpreting the tests.
+
+The zero-variance deadline outcomes make a conventional standardized
+effect size inappropriate. Descriptively, UBR-CA improved every paired
+deadline outcome relative to HEFT, KRP, EA-VC, and CCS, while matching
+CARS. Credit-exhaustion and migration results are reported with their
+full per-seed observations in the reproducibility package so that
+metric-specific nonparametric analyses can be applied without
+discarding ties.
+
+\begin{table}[t]
+\centering
+\caption{Paired execution-cost comparisons between UBR-CA and the
+principal baselines. Positive $d$ denotes higher UBR-CA cost.}
+\label{tab:cost-significance}
+\scriptsize
+\begin{tabular}{lrrr}
+\toprule
+Comparison & $t$-test $p$ & Wilcoxon $p$ & Cohen's $d$ \\
+\midrule
+UBR-CA vs.\ HEFT & 0.0610 & 0.0910 & 0.445 \\
+UBR-CA vs.\ KRP  & 0.0047 & 0.0080 & 0.715 \\
+UBR-CA vs.\ CCS  & 0.0014 & 0.0054 & 0.835 \\
+UBR-CA vs.\ CARS & $<0.001$ & $<0.001$ & 1.246 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion and Validity}
+\label{subsec:discussion}
+
+The experiments support three main conclusions. First, explicitly
+protecting future credit availability is necessary for reliable
+workflow execution. Capacity-aware methods that omit credit dynamics
+produced substantial lateness, and the advantage of UBR-CA increased
+sharply under heavy stress. Second, Bayesian learning and migration
+are complementary. Migration supplies the corrective action required
+when demand changes after placement, while Bayesian bounds reduce the
+number of unsafe states and unnecessary corrective actions. Third,
+these reliability gains are not free in the present configuration.
+UBR-CA exchanged a small increase in monetary cost for zero deadline
+violations, fewer exhaustion events, and fewer migrations than the
+reactive baseline.
+
+The results also delimit the claims that can be made. The reported
+workloads are benchmark-shaped and synthetic; trace-backed Alibaba
+claims require a separate run using the provided importer. CPU is the
+only constrained resource, so the evaluation does not capture memory,
+storage, image-pull delay, or network contention. The B\&B method is a
+strict-feasibility proxy rather than a global large-instance optimum.
+Finally, scheduler runtime is measured within the Java implementation
+and is hardware dependent. These limitations do not change the
+observed relative credit-safety behavior, but they should accompany
+any generalization to a specific cloud provider or production cluster.
+
+Overall, the evidence supports UBR-CA as a deadline- and credit-safety
+mechanism with bounded online overhead. For the reported synthetic
+workloads, its principal benefit is reliability rather than lower
+cloud expenditure.

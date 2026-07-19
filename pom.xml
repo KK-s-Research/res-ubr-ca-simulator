@@ -5,9 +5,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>in.ac.caluniv.cse</groupId>
-  <artifactId>ubr-ca-simulator</artifactId>
+  <artifactId>res-ubr-ca-simulator</artifactId>
   <version>1.0.0</version>
-  <name>UBR-CA reproducibility simulator</name>
+  <name>res-ubr-ca-simulator</name>
   <description>Bayesian-robust credit-aware scheduling for containerized workflows</description>
 
   <properties>

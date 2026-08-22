@@ -4,13 +4,13 @@ import in.ac.caluniv.cse.ubrca.config.ExperimentConfig;
 import in.ac.caluniv.cse.ubrca.scheduler.SchedulerPolicy;
 
 /**
- * Branch-and-bound proxy baseline.
+ * Internal strict-feasibility diagnostic excluded from publication comparisons.
  *
- * <p>This policy is a strict-feasibility reference for robust credit-aware
+ * <p>This policy is a diagnostic for robust credit-aware
  * placement. It applies Bayesian estimates, robust capacity checks, credit
  * feasibility, and proactive recovery, but uses a more cost-centered score.
- * It is a proxy for small-instance strict feasibility, not a claim of global
- * large-scale mixed-integer optimality.</p>
+ * It is not a branch-and-bound algorithm, an exact solver, or evidence of
+ * mixed-integer optimality.</p>
  */
 public final class BranchAndBoundProxyPolicy extends AbstractSchedulingPolicy {
     public BranchAndBoundProxyPolicy() {

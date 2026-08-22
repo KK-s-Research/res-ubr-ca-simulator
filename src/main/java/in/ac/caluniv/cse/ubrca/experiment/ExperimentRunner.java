@@ -18,16 +18,18 @@ import java.util.Map;
 public final class ExperimentRunner {
     public static final List<SchedulerPolicy> MANUSCRIPT_POLICIES = List.of(
             SchedulerPolicy.HEFT, SchedulerPolicy.KRP, SchedulerPolicy.EAVC,
-            SchedulerPolicy.CCS, SchedulerPolicy.CARS, SchedulerPolicy.BNB,
-            SchedulerPolicy.UBR_CA);
+            SchedulerPolicy.CCS, SchedulerPolicy.CARS, SchedulerPolicy.UBR_CA);
 
     public record SensitivityPoint(String parameter, String value,
                                    Statistics.Summary cost,
                                    Statistics.Summary violationRate,
                                    Statistics.Summary exhaustions,
+                                   Statistics.Summary throttledVmHours,
+                                   Statistics.Summary boundExceedanceRate,
                                    List<SimulationResult> runs) {}
 
-    public record ScalePoint(int tasks, double runtimeSeconds) {}
+    public record ScalePoint(int tasks, Statistics.Summary runtimeSeconds,
+                             List<Double> runs) {}
 
     public record ExperimentBundle(
             ExperimentConfig config,
@@ -110,11 +112,12 @@ public final class ExperimentRunner {
                 SimulationResult result = new Simulator(seeded, policy, templates).run();
                 results.add(result);
                 System.out.printf("    %-24s cost=%8.3f USD  violations=%6.2f%%  "
-                                + "lateness=%10.1f s  exhaustions=%3d  migrations=%3d  "
+                                + "lateness=%10.1f s  exhaustions=%3d  throttled=%7.3f VM-h  bound-exceed=%6.2f%%  migrations=%3d  "
                                 + "runtime=%8.4f s  maxVMs=%3d%n",
                         policy.label(), result.cost(), result.violationRate() * 100.0,
                         result.totalLateness(), result.creditExhaustions(),
-                        result.migrations(), result.schedulingRuntimeSeconds(),
+                        result.throttledVmSeconds() / 3_600.0,
+                        result.robustBoundExceedanceRate() * 100.0, result.migrations(), result.schedulingRuntimeSeconds(),
                         result.maximumVms());
             }
             if ((repetition + 1) % Math.max(1, count / 4) == 0
@@ -171,31 +174,46 @@ public final class ExperimentRunner {
                         summary(values, Metric.COST),
                         summary(values, Metric.VIOLATION),
                         summary(values, Metric.EXHAUSTIONS),
+                        summary(values, Metric.THROTTLED_VM_HOURS),
+                        summary(values, Metric.BOUND_EXCEEDANCE),
                         List.copyOf(values)));
             }
         }
         return points;
     }
 
-    private List<ScalePoint> runScalability() {
+    public List<ScalePoint> runScalability() {
         int[] sizes = quick
                 ? new int[]{50, 200, 500, 2_000}
                 : new int[]{50, 200, 500, 2_000, 5_000, 10_000, 50_000};
+        int scaleRepetitions = quick ? 3 : 10;
+        int warmupRepetitions = quick ? 1 : 3;
         List<ScalePoint> points = new ArrayList<>();
         for (int size : sizes) {
-            ExperimentConfig scaled = config.withScale(1, size)
-                    .withSeed(config.seed() + size);
-            List<Workflow> workflow = WorkloadGenerator.generate(scaled);
-            SimulationResult result = new Simulator(scaled,
-                    SchedulerPolicy.UBR_CA, workflow).run();
-            points.add(new ScalePoint(size, result.schedulingRuntimeSeconds()));
-            System.out.printf("  %,d tasks: %.4f s scheduler CPU time%n",
-                    size, result.schedulingRuntimeSeconds());
+            for (int warmup = 0; warmup < warmupRepetitions; warmup++) {
+                ExperimentConfig scaled = config.withScale(1, size)
+                        .withSeed(config.seed() - size - warmup * 7_919L);
+                List<Workflow> workflow = WorkloadGenerator.generate(scaled);
+                new Simulator(scaled, SchedulerPolicy.UBR_CA, workflow).run();
+            }
+            List<Double> runtimes = new ArrayList<>();
+            for (int repetition = 0; repetition < scaleRepetitions; repetition++) {
+                ExperimentConfig scaled = config.withScale(1, size)
+                        .withSeed(config.seed() + size + repetition * 7_919L);
+                List<Workflow> workflow = WorkloadGenerator.generate(scaled);
+                SimulationResult result = new Simulator(scaled,
+                        SchedulerPolicy.UBR_CA, workflow).run();
+                runtimes.add(result.schedulingRuntimeSeconds());
+            }
+            Statistics.Summary runtime = Statistics.summarize(runtimes);
+            points.add(new ScalePoint(size, runtime, List.copyOf(runtimes)));
+            System.out.printf("  %,d tasks: %.4f +/- %.4f s scheduler CPU time (%d runs)%n",
+                    size, runtime.mean(), runtime.standardDeviation(), scaleRepetitions);
         }
         return points;
     }
 
-    private enum Metric { COST, VIOLATION, EXHAUSTIONS }
+    private enum Metric { COST, VIOLATION, EXHAUSTIONS, THROTTLED_VM_HOURS, BOUND_EXCEEDANCE }
 
     private static Statistics.Summary summary(List<SimulationResult> results,
                                               Metric metric) {
@@ -203,6 +221,8 @@ public final class ExperimentRunner {
             case COST -> result.cost();
             case VIOLATION -> result.violationRate();
             case EXHAUSTIONS -> (double) result.creditExhaustions();
+            case THROTTLED_VM_HOURS -> result.throttledVmSeconds() / 3_600.0;
+            case BOUND_EXCEEDANCE -> result.robustBoundExceedanceRate();
         }).toList();
         return Statistics.summarize(values);
     }

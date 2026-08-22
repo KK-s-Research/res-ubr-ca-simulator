@@ -25,7 +25,7 @@ public enum SchedulerPolicy {
     EAVC("EA-VC"),
     CCS("CCS"),
     CARS("CARS"),
-    BNB("B&B proxy"),
+    BNB("Strict-feasibility diagnostic"),
     UBR_CA_NO_MIGRATION("UBR-CA no migration"),
     UBR_CA_NO_BAYES("UBR-CA no Bayesian"),
     UBR_CA("UBR-CA");

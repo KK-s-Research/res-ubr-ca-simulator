@@ -123,14 +123,14 @@ public final class PythonPlotScriptWriter {
                     ) from exc
 
 
-                POLICY_ORDER = ["HEFT", "KRP", "EA-VC", "CCS", "CARS", "B&B proxy", "UBR-CA"]
+                POLICY_ORDER = ["HEFT", "KRP", "EA-VC", "CCS", "CARS", "UBR-CA"]
                 POLICY_COLORS = {
                     "HEFT": "#4C78A8",
                     "KRP": "#72B7B2",
                     "EA-VC": "#54A24B",
                     "CCS": "#ECA82C",
                     "CARS": "#F58518",
-                    "B&B proxy": "#B279A2",
+
                     "UBR-CA": "#E45756",
                     "UBR-CA no migration": "#7F7F7F",
                 }
@@ -271,7 +271,7 @@ public final class PythonPlotScriptWriter {
                                 fontweight="bold", color="#1B1B1B")
                         for j, bullet in enumerate(bullets):
                             ax.text(x0 + 0.030, y0 + height - 0.165 - j * 0.075,
-                                    f"• {bullet}", ha="left", va="center",
+                                    f"- {bullet}", ha="left", va="center",
                                     fontsize=13.5, color="#1B1B1B")
                         if i < len(xs) - 1:
                             ax.annotate("", xy=(x0 + width + 0.035, y0 + 0.31),
@@ -287,10 +287,9 @@ public final class PythonPlotScriptWriter {
                     ax.text(0.47, 0.142, "System components",
                             ha="center", va="center", fontsize=14,
                             fontweight="bold")
-                    components = ["Workflow manager", "Monitoring module", "UBR-CA scheduler", "Burstable VM pool"]
-                    for k, component in enumerate(components):
-                        ax.text(0.24 + k * 0.145, 0.095, component,
-                                ha="center", va="center", fontsize=12.8)
+                    ax.text(0.47, 0.095,
+                            "Workflow manager  |  Monitoring module  |  UBR-CA scheduler  |  Burstable VM pool",
+                            ha="center", va="center", fontsize=11.2)
                     ax.annotate("", xy=(0.20, 0.235), xytext=(0.20, 0.17),
                                 arrowprops=dict(arrowstyle="-|>", lw=1.3, color="#333333"))
                     ax.annotate("", xy=(0.82, 0.235), xytext=(0.72, 0.17),
@@ -379,7 +378,7 @@ public final class PythonPlotScriptWriter {
                         ("epsilon", "Risk tolerance $\\\\epsilon$"),
                         ("lateness_lambda", "Lateness penalty $\\\\lambda$"),
                     ]
-                    fig, axes = plt.subplots(2, 2, figsize=(9.2, 6.8))
+                    fig, axes = plt.subplots(2, 2, figsize=(12.8, 9.2))
                     axes = axes.ravel()
                     legend_handles = None
                     for ax, (parameter, title) in zip(axes, panels):
@@ -388,29 +387,30 @@ public final class PythonPlotScriptWriter {
                         x = [f(row, "value") for row in subset]
                         cost = [f(row, "cost_mean") for row in subset]
                         cost_sd = [f(row, "cost_sd") for row in subset]
-                        exhaust = [f(row, "exhaustions_mean") for row in subset]
-                        exhaust_sd = [f(row, "exhaustions_sd") for row in subset]
+                        exhaust = [f(row, "throttled_vm_hours_mean") for row in subset]
+                        exhaust_sd = [f(row, "throttled_vm_hours_sd") for row in subset]
 
                         ax.errorbar(x, cost, yerr=cost_sd, marker="o", capsize=2.5,
                                     color="#4C78A8", label="Cost")
-                        ax.set_xlabel(title)
-                        ax.set_ylabel("Cost (USD)", color="#4C78A8")
+                        ax.set_xlabel(title, fontsize=22, fontweight="bold")
+                        ax.set_ylabel("Cost (USD)", color="#4C78A8", fontsize=21)
+                        ax.tick_params(axis="both", labelsize=18)
                         ax.tick_params(axis="y", labelcolor="#4C78A8")
                         ax.grid(True)
 
                         ax2 = ax.twinx()
                         ax2.errorbar(x, exhaust, yerr=exhaust_sd, marker="s", capsize=2.5,
-                                     color="#E45756", label="Exhaustions")
-                        ax2.set_ylabel("Exhaustions", color="#E45756")
-                        ax2.tick_params(axis="y", labelcolor="#E45756")
+                                     color="#E45756", label="Throttled VM-hours")
+                        ax2.set_ylabel("Throttled VM-hours", color="#E45756", fontsize=21)
+                        ax2.tick_params(axis="y", labelcolor="#E45756", labelsize=18)
                         if legend_handles is None:
                             legend_handles = (ax.lines[0], ax2.lines[0])
 
                     if legend_handles:
-                        fig.legend(legend_handles, ["Cost", "Exhaustions"], frameon=False, ncol=2,
-                                   loc="upper center", bbox_to_anchor=(0.5, 0.995))
-                    fig.subplots_adjust(left=0.08, right=0.92, bottom=0.10, top=0.84,
-                                        hspace=0.58, wspace=0.42)
+                        fig.legend(legend_handles, ["Cost", "Throttled VM-hours"], frameon=False, ncol=2,
+                                   loc="upper center", bbox_to_anchor=(0.5, 0.995), fontsize=19)
+                    fig.subplots_adjust(left=0.09, right=0.91, bottom=0.10, top=0.85,
+                                        hspace=0.62, wspace=0.48)
                     save(fig, outdir, "figure_5_sensitivity_panels", tight=False)
 
 
@@ -432,8 +432,8 @@ public final class PythonPlotScriptWriter {
                         x = [f(row, "value") for row in subset]
                         cost = [f(row, "cost_mean") for row in subset]
                         cost_sd = [f(row, "cost_sd") for row in subset]
-                        exhaust = [f(row, "exhaustions_mean") for row in subset]
-                        exhaust_sd = [f(row, "exhaustions_sd") for row in subset]
+                        exhaust = [f(row, "throttled_vm_hours_mean") for row in subset]
+                        exhaust_sd = [f(row, "throttled_vm_hours_sd") for row in subset]
 
                         fig, ax = plt.subplots(figsize=(5.0, 3.75))
                         line1 = ax.errorbar(x, cost, yerr=cost_sd, marker="o", capsize=3.2,
@@ -445,10 +445,10 @@ public final class PythonPlotScriptWriter {
 
                         ax2 = ax.twinx()
                         line2 = ax2.errorbar(x, exhaust, yerr=exhaust_sd, marker="s", capsize=3.2,
-                                             color="#E45756", label="Exhaustions")
-                        ax2.set_ylabel("Exhaustions", color="#E45756")
-                        ax2.tick_params(axis="y", labelcolor="#E45756")
-                        ax.legend([line1.lines[0], line2.lines[0]], ["Cost", "Exhaustions"],
+                                             color="#E45756", label="Throttled VM-hours")
+                        ax2.set_ylabel("Throttled VM-hours", color="#E45756", fontsize=21)
+                        ax2.tick_params(axis="y", labelcolor="#E45756", labelsize=18)
+                        ax.legend([line1.lines[0], line2.lines[0]], ["Cost", "Throttled VM-hours"],
                                   frameon=False, ncol=2, loc="upper center",
                                   bbox_to_anchor=(0.5, 1.18))
                         fig.subplots_adjust(left=0.18, right=0.84, bottom=0.20, top=0.82)
@@ -507,10 +507,12 @@ public final class PythonPlotScriptWriter {
                 def figure_7_scalability(root: Path, outdir: Path) -> None:
                     rows = read_csv(root / "raw" / "scalability_results.csv")
                     x = [f(row, "tasks") for row in rows]
-                    y = [f(row, "scheduler_runtime_seconds") for row in rows]
+                    y = [f(row, "scheduler_runtime_mean_seconds") for row in rows]
+                    yerr = [f(row, "scheduler_runtime_sd_seconds") for row in rows]
 
                     fig, ax = plt.subplots(figsize=(8.2, 4.6))
-                    ax.plot(x, y, marker="o", color="#4C78A8")
+                    ax.errorbar(x, y, yerr=yerr, marker="o", capsize=3.0,
+                                color="#4C78A8")
                     ax.set_xscale("log")
                     ax.set_xlabel("Number of tasks (log scale)")
                     ax.set_ylabel("Scheduler CPU time (s)")

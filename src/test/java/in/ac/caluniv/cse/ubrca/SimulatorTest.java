@@ -27,8 +27,25 @@ class SimulatorTest {
             assertTrue(result.cost() > 0.0, policy.name());
             assertTrue(result.violationRate() >= 0.0
                     && result.violationRate() <= 1.0, policy.name());
+            assertTrue(Double.isFinite(result.throttledVmSeconds())
+                    && result.throttledVmSeconds() >= 0.0, policy.name());
+            assertTrue(result.robustBoundEvaluations() > 0L, policy.name());
+            assertTrue(result.robustBoundExceedanceRate() >= 0.0
+                    && result.robustBoundExceedanceRate() <= 1.0, policy.name());
             assertFalse(result.creditTrajectory().isEmpty(), policy.name());
         }
+    }
+
+    @Test
+    void ubrCaUsesPosteriorPredictiveVariance() {
+        ExperimentConfig config = ExperimentConfig.defaults(Path.of("output"))
+                .withScale(1, 12).withSeed(17);
+        List<Workflow> workflows = WorkloadGenerator.generate(config);
+        var task = workflows.get(0).tasks.get(0);
+        double variance = SchedulerPolicy.UBR_CA.createPolicy()
+                .utilizationVariance(task, config);
+        assertEquals(task.posteriorVariance + config.observationVariance(),
+                variance, 1e-12);
     }
 
     @Test

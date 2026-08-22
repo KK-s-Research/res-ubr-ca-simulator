@@ -30,7 +30,7 @@ public record ExperimentConfig(
         return new ExperimentConfig(
                 300.0, 2, 0.05, 100.0, 0.025, 0.00002,
                 0.0225, 0.04, 6.0, 12.0,
-                8, 90, 1.55, WorkloadGenerator.Stress.MODERATE,
+                30, 500, 1.55, WorkloadGenerator.Stress.MODERATE,
                 20260703L, outputDirectory);
     }
 

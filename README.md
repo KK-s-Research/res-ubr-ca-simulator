@@ -14,28 +14,28 @@ Requirements: Java 21 and Maven 3.9 or newer.
 
 ```bash
 mvn clean test package
-java -Djava.awt.headless=true -jar target/ubr-ca-simulator-1.0.0.jar --full
+java -Djava.awt.headless=true -jar target/res-ubr-ca-simulator-1.0.0.jar --full
 ```
 
 The full mode uses 20 paired random seeds, as specified in the paper.
 For a fast verification:
 
 ```bash
-java -Djava.awt.headless=true -jar target/ubr-ca-simulator-1.0.0.jar \
+java -Djava.awt.headless=true -jar target/res-ubr-ca-simulator-1.0.0.jar \
   --quick --output output-quick
 ```
 
 For a larger publication-scale experiment:
 
 ```bash
-java -Djava.awt.headless=true -jar target/ubr-ca-simulator-1.0.0.jar \
+java -Djava.awt.headless=true -jar target/res-ubr-ca-simulator-1.0.0.jar \
   --large --output output-large
 ```
 
 The scale can also be overridden directly:
 
 ```bash
-java -Djava.awt.headless=true -jar target/ubr-ca-simulator-1.0.0.jar \
+java -Djava.awt.headless=true -jar target/res-ubr-ca-simulator-1.0.0.jar \
   --full --workflows 16 --tasks 180 --stress MODERATE --output output-large
 ```
 
@@ -66,6 +66,10 @@ The output directory contains:
   provenance.
 - `RESULTS.md`: a concise result summary and interpretation boundary.
 
+Sensitivity to the scheduling interval is reported using throttled VM-hours,
+a duration-based metric that is comparable across interval lengths; exhaustion
+episode counts remain available in the raw CSV files.
+
 All reported table entries are `mean ± sample standard deviation`.
 Paired t-tests, Wilcoxon signed-rank tests, and paired Cohen's *d* use
 seed-matched samples.
@@ -89,7 +93,7 @@ It requires `matplotlib` and `numpy`.
 - Energy-aware VM consolidation (EA-VC)
 - Chance-constrained scheduling (CCS)
 - Credit-aware reactive scheduling (CARS)
-- strict-feasibility branch-and-bound proxy (`B&B proxy`)
+- internal strict-feasibility diagnostic (excluded from publication comparisons because it is not an exact branch-and-bound solver)
 - UBR-CA without credit-aware migration
 - UBR-CA without Bayesian learning
 - full UBR-CA
@@ -116,7 +120,7 @@ They must not be presented as Alibaba trace measurements.
 To replay a real or preprocessed trace:
 
 ```bash
-java -jar target/ubr-ca-simulator-1.0.0.jar --full \
+java -jar target/res-ubr-ca-simulator-1.0.0.jar --full \
   --trace data/alibaba-workflows.csv --output output-alibaba
 ```
 
@@ -145,9 +149,9 @@ benchmark,deadline,pattern,state_size_gb
   merely because it made a different number of random calls.
 - Raw results are never overwritten with hand-entered manuscript
   values.
-- The exact global mixed-integer model is NP-hard. `B&B proxy` is a
-  strict-feasibility small-instance reference, not a claim of a global
-  MILP optimum for workflows with tens of thousands of tasks.
+- The exact global mixed-integer model is NP-hard. The internal strict-feasibility
+  diagnostic is not an exact branch-and-bound or MILP solver and is excluded
+  from all publication comparisons.
 - The simulator models CPU as the bottleneck, matching the manuscript.
   Memory, storage, image-pull delay, and provider-specific unlimited-mode
   surcharge are outside the stated model.

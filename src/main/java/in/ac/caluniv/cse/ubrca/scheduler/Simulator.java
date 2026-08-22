@@ -9,6 +9,8 @@ import in.ac.caluniv.cse.ubrca.scheduler.policy.MigrationMode;
 import in.ac.caluniv.cse.ubrca.scheduler.policy.PlacementContext;
 import in.ac.caluniv.cse.ubrca.scheduler.policy.SchedulingPolicy;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -18,6 +20,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class Simulator {
+    private static final ThreadMXBean THREAD_MX_BEAN =
+            ManagementFactory.getThreadMXBean();
     private static final List<VirtualMachine.Type> VM_TYPES = List.of(
             new VirtualMachine.Type("b2.small", 0.40, 2.0, 0.0208,
                     12.0, 72.0, 0.20),
@@ -36,6 +40,9 @@ public final class Simulator {
     private final List<SimulationResult.CreditPoint> trajectory = new ArrayList<>();
     private int nextVmId;
     private int creditExhaustions;
+    private double throttledVmSeconds;
+    private long robustBoundEvaluations;
+    private long robustBoundExceedances;
     private int migrations;
     private int maximumVms;
     private long schedulingNanos;
@@ -63,14 +70,14 @@ public final class Simulator {
         double maximumTime = maximumDeadline * 8.0 + totalTasks * config.intervalSeconds();
 
         while (finishedTasks < totalTasks && time <= maximumTime) {
-            long startScheduling = System.nanoTime();
+            long startScheduling = schedulingClockNanos();
             retireIdleVms();
             List<Task> ready = identifyReadyTasks(time);
             ready.sort(Comparator.comparingDouble(
                     (Task t) -> schedulingPolicy.readyPriority(t)).reversed());
             for (Task task : ready) place(task, time);
             migrateCreditCriticalVms(time);
-            schedulingNanos += System.nanoTime() - startScheduling;
+            schedulingNanos += schedulingClockNanos() - startScheduling;
 
             finishedTasks += executeInterval(time, intervalIndex);
             recordCreditTrajectory(time);
@@ -97,8 +104,15 @@ public final class Simulator {
         }
         return new SimulationResult(policy, config.seed(), cost,
                 violations / (double) workflows.size(), lateness,
-                creditExhaustions, migrations, schedulingNanos / 1e9,
+                creditExhaustions, throttledVmSeconds, robustBoundEvaluations,
+                robustBoundExceedances, migrations, schedulingNanos / 1e9,
                 maximumVms, makespan, List.copyOf(trajectory));
+    }
+
+    private static long schedulingClockNanos() {
+        return THREAD_MX_BEAN.isCurrentThreadCpuTimeSupported()
+                ? THREAD_MX_BEAN.getCurrentThreadCpuTime()
+                : System.nanoTime();
     }
 
     private List<Task> identifyReadyTasks(double time) {
@@ -304,9 +318,13 @@ public final class Simulator {
     }
 
     private double predictedCredits(VirtualMachine vm, double demand) {
-        double minutes = config.intervalSeconds() / 60.0;
-        return vm.credits + vm.type.accrualPerMinute() * minutes
-                - Math.max(0.0, demand - vm.type.baseline()) * minutes;
+        double horizonMinutes = config.lookaheadHorizon()
+                * config.intervalSeconds() / 60.0;
+        double projected = vm.credits
+                + vm.type.accrualPerMinute() * horizonMinutes
+                - Math.max(0.0, demand - vm.type.baseline())
+                * horizonMinutes;
+        return Math.min(vm.type.maximumCredits(), projected);
     }
 
     private int executeInterval(double time, int intervalIndex) {
@@ -325,6 +343,11 @@ public final class Simulator {
                 observations.put(task, value);
                 totalUtilization += value;
             }
+            Aggregate predictiveBound = aggregate(vm.tasks);
+            robustBoundEvaluations++;
+            if (totalUtilization > predictiveBound.worst + 1e-9) {
+                robustBoundExceedances++;
+            }
             double minutes = config.intervalSeconds() / 60.0;
             double accrual = vm.type.accrualPerMinute() * minutes;
             double consumption = Math.max(0.0,
@@ -337,6 +360,7 @@ public final class Simulator {
                         Math.min(1.0, available / Math.max(1e-9, consumption)));
                 double throttledSpeed = vm.type.baseline() / totalUtilization;
                 speed = burstFraction + (1.0 - burstFraction) * throttledSpeed;
+                throttledVmSeconds += config.intervalSeconds() * (1.0 - burstFraction);
                 if (!vm.exhaustedLastInterval) creditExhaustions++;
             }
             vm.credits = Math.max(0.0, Math.min(vm.type.maximumCredits(),

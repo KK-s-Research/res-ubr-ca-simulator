@@ -9,13 +9,17 @@ public final class Statistics {
 
     public record Summary(double mean, double standardDeviation) {
         public String formatted(int decimals) {
-            return ("%." + decimals + "f ± %." + decimals + "f")
+            return ("%." + decimals + "f \u00B1 %." + decimals + "f")
                     .formatted(mean, standardDeviation);
         }
     }
 
-    public record PairedComparison(double tTestP, double wilcoxonP,
-                                   double cohensD) {}
+    public record PairedComparison(double meanDifference,
+                                   double confidenceLower,
+                                   double confidenceUpper,
+                                   double tTestP,
+                                   double wilcoxonP,
+                                   double pairedCohensDz) {}
 
     public static Summary summarize(List<Double> values) {
         if (values.isEmpty()) return new Summary(Double.NaN, Double.NaN);
@@ -35,15 +39,49 @@ public final class Statistics {
             differences.add(treatment.get(i) - control.get(i));
         }
         Summary summary = summarize(differences);
+        if (Math.abs(summary.mean()) <= 1e-12
+                && summary.standardDeviation() <= 1e-12) {
+            // All paired differences are exactly zero. There is no sampling
+            // variation from which either test statistic or d_z can be formed.
+            return new PairedComparison(0.0, 0.0, 0.0,
+                    Double.NaN, Double.NaN, Double.NaN);
+        }
         double t = summary.standardDeviation == 0.0
-                ? (summary.mean == 0.0 ? 0.0 : Double.POSITIVE_INFINITY)
+                ? Math.copySign(Double.POSITIVE_INFINITY, summary.mean)
                 : summary.mean / (summary.standardDeviation / Math.sqrt(differences.size()));
+        int degreesOfFreedom = differences.size() - 1;
         double tP = Double.isInfinite(t) ? 0.0
-                : regularizedBeta(differences.size() - 1.0,
-                differences.size() - 1.0 + t * t, 0.5 * (differences.size() - 1.0), 0.5);
+                : twoSidedStudentTP(Math.abs(t), degreesOfFreedom);
+        double standardError = summary.standardDeviation
+                / Math.sqrt(differences.size());
+        double margin = studentTCritical95(degreesOfFreedom) * standardError;
         double d = summary.standardDeviation == 0.0
-                ? 0.0 : summary.mean / summary.standardDeviation;
-        return new PairedComparison(clamp(tP), wilcoxon(differences), d);
+                ? Math.copySign(Double.POSITIVE_INFINITY, summary.mean)
+                : summary.mean / summary.standardDeviation;
+        return new PairedComparison(summary.mean,
+                summary.mean - margin, summary.mean + margin,
+                clamp(tP), wilcoxon(differences), d);
+    }
+
+    private static double twoSidedStudentTP(double absoluteT,
+                                             int degreesOfFreedom) {
+        return regularizedBeta(degreesOfFreedom,
+                degreesOfFreedom + absoluteT * absoluteT,
+                0.5 * degreesOfFreedom, 0.5);
+    }
+
+    private static double studentTCritical95(int degreesOfFreedom) {
+        double lower = 0.0;
+        double upper = 20.0;
+        for (int i = 0; i < 100; i++) {
+            double midpoint = 0.5 * (lower + upper);
+            if (twoSidedStudentTP(midpoint, degreesOfFreedom) > 0.05) {
+                lower = midpoint;
+            } else {
+                upper = midpoint;
+            }
+        }
+        return 0.5 * (lower + upper);
     }
 
     private static double wilcoxon(List<Double> rawDifferences) {

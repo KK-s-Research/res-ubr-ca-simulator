@@ -18,7 +18,7 @@ public final class Main {
         }
         ExperimentConfig config = ExperimentConfig.defaults(options.output);
         if (options.quick) config = config.withScale(4, 35);
-        if (options.large) config = config.withScale(16, 180);
+        if (options.large) config = config.withScale(40, 1_000);
         if (options.workflows != null || options.tasksPerWorkflow != null) {
             config = config.withScale(
                     options.workflows == null ? config.workflows() : options.workflows,
@@ -50,20 +50,27 @@ public final class Main {
         }
         ExperimentRunner runner = new ExperimentRunner(config,
                 options.repetitions, options.quick, options.trace);
+        if (options.scalabilityOnly) {
+            new ArtifactWriter(options.output).writeScalabilityStudy(
+                    runner.runScalability());
+            System.out.println("Complete. Scalability results: "
+                    + options.output.resolve("raw/scalability_results.csv")
+                    .toAbsolutePath());
+            return;
+        }
         ExperimentRunner.ExperimentBundle bundle = runner.run();
         new ArtifactWriter(options.output).write(bundle);
         System.out.println("Complete. Results: "
                 + options.output.resolve("RESULTS.md").toAbsolutePath());
     }
-
     private static void usage() {
         System.out.println("""
                 UBR-CA simulator
 
-                java -jar target/ubr-ca-simulator-1.0.0.jar [options]
+                java -jar target/res-ubr-ca-simulator-1.0.0.jar [options]
 
                   --full             20-seed manuscript experiment (default)
-                  --large            larger manuscript experiment (16 workflows, ~180 tasks each)
+                  --large            stress-scale experiment (40 workflows, ~1,000 tasks each)
                   --quick            small 3-seed verification run
                   --repetitions N    override repetitions
                   --workflows N      override workflow count
@@ -72,6 +79,7 @@ public final class Main {
                   --deadline-factor X override deadline factor
                   --output DIR       artifact directory (default: output)
                   --trace FILE.csv   import real trace/DAG data
+                  --scalability-only  run only the replicated scalability study
                   --help             show this message
                 """);
     }
@@ -83,6 +91,7 @@ public final class Main {
         private Path output = Path.of("output");
         private Path trace;
         private boolean help;
+        private boolean scalabilityOnly;
         private Integer workflows;
         private Integer tasksPerWorkflow;
         private WorkloadGenerator.Stress stress;
@@ -121,8 +130,7 @@ public final class Main {
                             Path.of(requireValue(args, ++i, "--output"));
                     case "--trace" -> value.trace =
                             Path.of(requireValue(args, ++i, "--trace"));
-                    case "--help", "-h" -> value.help = true;
-                    default -> throw new IllegalArgumentException(
+                    case "--scalability-only" -> value.scalabilityOnly = true;                    default -> throw new IllegalArgumentException(
                             "Unknown option: " + args[i] + " (use --help)");
                 }
             }

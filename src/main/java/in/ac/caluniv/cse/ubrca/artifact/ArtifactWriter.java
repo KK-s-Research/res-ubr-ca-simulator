@@ -61,6 +61,12 @@ public final class ArtifactWriter {
         writeManuscriptGuide(bundle);
     }
 
+    public void writeScalabilityStudy(List<ExperimentRunner.ScalePoint> points)
+            throws IOException {
+        Files.createDirectories(raw);
+        writeScalability(points);
+    }
+
     private void writeConfig(ExperimentRunner.ExperimentBundle bundle) throws IOException {
         ExperimentConfig c = bundle.config();
         String json = """
@@ -97,13 +103,16 @@ public final class ArtifactWriter {
             throws IOException {
         StringBuilder csv = new StringBuilder(
                 "policy,seed,cost_usd,violation_rate,total_lateness_seconds,"
-                        + "credit_exhaustions,migrations,scheduler_runtime_seconds,"
+                        + "credit_exhaustions,throttled_vm_hours,robust_bound_evaluations,robust_bound_exceedances,bound_exceedance_rate,migrations,scheduler_runtime_seconds,"
                         + "maximum_vms,makespan_seconds,note\n");
         for (SimulationResult r : results) {
             csv.append(csv(r.policy().label())).append(',').append(r.seed()).append(',')
                     .append(f(r.cost())).append(',').append(f(r.violationRate())).append(',')
                     .append(f(r.totalLateness())).append(',')
-                    .append(r.creditExhaustions()).append(',').append(r.migrations())
+                    .append(r.creditExhaustions()).append(',').append(f(r.throttledVmSeconds() / 3_600.0)).append(',')
+                    .append(r.robustBoundEvaluations()).append(',')
+                    .append(r.robustBoundExceedances()).append(',')
+                    .append(f(r.robustBoundExceedanceRate())).append(',').append(r.migrations())
                     .append(',').append(f(r.schedulingRuntimeSeconds())).append(',')
                     .append(r.maximumVms()).append(',').append(f(r.makespan()))
                     .append(',').append(csv(note)).append('\n');
@@ -114,9 +123,9 @@ public final class ArtifactWriter {
     private void writeSensitivity(List<ExperimentRunner.SensitivityPoint> points)
             throws IOException {
         StringBuilder summary = new StringBuilder("parameter,value,cost_mean,cost_sd,"
-                + "violation_rate_mean,violation_rate_sd,exhaustions_mean,exhaustions_sd\n");
+                + "violation_rate_mean,violation_rate_sd,exhaustions_mean,exhaustions_sd,throttled_vm_hours_mean,throttled_vm_hours_sd,bound_exceedance_rate_mean,bound_exceedance_rate_sd\n");
         StringBuilder rawRuns = new StringBuilder("parameter,value,seed,cost_usd,"
-                + "violation_rate,total_lateness_seconds,credit_exhaustions,"
+                + "violation_rate,total_lateness_seconds,credit_exhaustions,throttled_vm_hours,robust_bound_evaluations,robust_bound_exceedances,bound_exceedance_rate,"
                 + "migrations,scheduler_runtime_seconds,maximum_vms,makespan_seconds\n");
         for (ExperimentRunner.SensitivityPoint p : points) {
             summary.append(p.parameter()).append(',').append(p.value()).append(',')
@@ -124,13 +133,21 @@ public final class ArtifactWriter {
                     .append(',').append(f(p.violationRate().mean())).append(',')
                     .append(f(p.violationRate().standardDeviation())).append(',')
                     .append(f(p.exhaustions().mean())).append(',')
-                    .append(f(p.exhaustions().standardDeviation())).append('\n');
+                    .append(f(p.exhaustions().standardDeviation())).append(',')
+                    .append(f(p.throttledVmHours().mean())).append(',')
+                    .append(f(p.throttledVmHours().standardDeviation())).append(',')
+                    .append(f(p.boundExceedanceRate().mean())).append(',')
+                    .append(f(p.boundExceedanceRate().standardDeviation())).append('\n');
             for (SimulationResult r : p.runs()) {
                 rawRuns.append(p.parameter()).append(',').append(p.value()).append(',')
                         .append(r.seed()).append(',').append(f(r.cost())).append(',')
                         .append(f(r.violationRate())).append(',')
                         .append(f(r.totalLateness())).append(',')
                         .append(r.creditExhaustions()).append(',')
+                        .append(f(r.throttledVmSeconds() / 3_600.0)).append(',')
+                        .append(r.robustBoundEvaluations()).append(',')
+                        .append(r.robustBoundExceedances()).append(',')
+                        .append(f(r.robustBoundExceedanceRate())).append(',')
                         .append(r.migrations()).append(',')
                         .append(f(r.schedulingRuntimeSeconds())).append(',')
                         .append(r.maximumVms()).append(',').append(f(r.makespan()))
@@ -145,7 +162,7 @@ public final class ArtifactWriter {
 
     private void writeStressRaw(List<SimulationResult> results) throws IOException {
         StringBuilder csv = new StringBuilder("stress,policy,seed,cost_usd,"
-                + "violation_rate,total_lateness_seconds,credit_exhaustions,"
+                + "violation_rate,total_lateness_seconds,credit_exhaustions,throttled_vm_hours,robust_bound_evaluations,robust_bound_exceedances,bound_exceedance_rate,"
                 + "migrations,scheduler_runtime_seconds,maximum_vms,makespan_seconds\n");
         if (!results.isEmpty()) {
             int perStress = results.size() / WorkloadGenerator.Stress.values().length;
@@ -158,6 +175,10 @@ public final class ArtifactWriter {
                             .append(f(r.violationRate())).append(',')
                             .append(f(r.totalLateness())).append(',')
                             .append(r.creditExhaustions()).append(',')
+                            .append(f(r.throttledVmSeconds() / 3_600.0)).append(',')
+                            .append(r.robustBoundEvaluations()).append(',')
+                            .append(r.robustBoundExceedances()).append(',')
+                            .append(f(r.robustBoundExceedanceRate())).append(',')
                             .append(r.migrations()).append(',')
                             .append(f(r.schedulingRuntimeSeconds())).append(',')
                             .append(r.maximumVms()).append(',')
@@ -171,9 +192,12 @@ public final class ArtifactWriter {
 
     private void writeScalability(List<ExperimentRunner.ScalePoint> points)
             throws IOException {
-        StringBuilder csv = new StringBuilder("tasks,scheduler_runtime_seconds\n");
+        StringBuilder csv = new StringBuilder(
+                "tasks,repetitions,scheduler_runtime_mean_seconds,scheduler_runtime_sd_seconds\n");
         for (ExperimentRunner.ScalePoint p : points) {
-            csv.append(p.tasks()).append(',').append(f(p.runtimeSeconds())).append('\n');
+            csv.append(p.tasks()).append(',').append(p.runs().size()).append(',')
+                    .append(f(p.runtimeSeconds().mean())).append(',')
+                    .append(f(p.runtimeSeconds().standardDeviation())).append('\n');
         }
         Files.writeString(raw.resolve("scalability_results.csv"), csv,
                 StandardCharsets.UTF_8);
@@ -230,16 +254,15 @@ public final class ArtifactWriter {
                     stat(values, SimulationResult::cost, 3),
                     percentStat(values, SimulationResult::violationRate, 2),
                     stat(values, r -> r.creditExhaustions(), 2),
-                    stat(values, r -> r.migrations(), 2),
-                    stat(values, SimulationResult::schedulingRuntimeSeconds, 4)));
+                    stat(values, r -> r.migrations(), 2)));
         }
         writeTable("table_iii_overall_performance",
                 List.of("Method", "Cost (USD)", "Deadline violations (%)",
-                        "Credit exhaustions", "Migration count", "Runtime (s)"),
+                        "Credit exhaustions", "Migration count"),
                 overall);
         writeTable("table_iv_overall_performance",
                 List.of("Method", "Cost (USD)", "Deadline violations (%)",
-                        "Credit exhaustions", "Migration count", "Runtime (s)"),
+                        "Credit exhaustions", "Migration count"),
                 overall);
 
         List<List<String>> deadline = new ArrayList<>();
@@ -282,16 +305,16 @@ public final class ArtifactWriter {
         List<List<String>> sensitivity = bundle.sensitivity().stream()
                 .map(point -> List.of(manuscriptParameter(point.parameter()), point.value(),
                         point.cost().formatted(3),
-                        new Statistics.Summary(point.violationRate().mean() * 100.0,
-                                point.violationRate().standardDeviation() * 100.0)
+                        new Statistics.Summary(point.boundExceedanceRate().mean() * 100.0,
+                                point.boundExceedanceRate().standardDeviation() * 100.0)
                                 .formatted(2),
-                        point.exhaustions().formatted(2))).toList();
+                        point.throttledVmHours().formatted(3))).toList();
         writeTable("table_vii_sensitivity",
                 List.of("Parameter", "Value", "Cost (USD)",
-                        "Violations (%)", "Exhaustions"), sensitivity);
+                        "Bound exceedance (%)", "Throttled VM-hours"), sensitivity);
         writeTable("table_viii_sensitivity",
                 List.of("Parameter", "Value", "Cost (USD)",
-                        "Violations (%)", "Exhaustions"), sensitivity);
+                        "Bound exceedance (%)", "Throttled VM-hours"), sensitivity);
 
         List<List<String>> statistics = new ArrayList<>();
         List<Double> ubrCost = metric(full, SimulationResult::cost);
@@ -303,20 +326,65 @@ public final class ArtifactWriter {
                         baselineCost);
                 statistics.add(List.of("UBR-CA vs " + policy.label(),
                         p(comparison.tTestP()), p(comparison.wilcoxonP()),
-                        f(comparison.cohensD())));
+                        f(comparison.pairedCohensDz())));
             } else {
                 statistics.add(List.of("UBR-CA vs " + policy.label(),
                         "N/A", "N/A", "N/A"));
             }
         }
         writeTable("table_viii_cost_significance",
-                List.of("Comparison", "Paired t-test p", "Wilcoxon p", "Cohen's d"),
-                statistics);
+                List.of("Comparison", "Paired t-test p", "Wilcoxon p",
+                        "Paired Cohen's d_z"), statistics);
         writeTable("table_vii_statistical_significance",
-                List.of("Comparison", "Paired t-test p", "Wilcoxon p", "Cohen's d"),
-                statistics);
+                List.of("Comparison", "Paired t-test p", "Wilcoxon p",
+                        "Paired Cohen's d_z"), statistics);
+
+        List<List<String>> reliabilityStatistics = new ArrayList<>();
+        addPairedComparison(reliabilityStatistics,
+                "Deadline violations (%): UBR-CA - HEFT",
+                metric(full, r -> 100.0 * r.violationRate()),
+                metric(all.get(SchedulerPolicy.HEFT),
+                        r -> 100.0 * r.violationRate()));
+        addPairedComparison(reliabilityStatistics,
+                "Deadline violations (%): UBR-CA - CARS",
+                metric(full, r -> 100.0 * r.violationRate()),
+                metric(all.get(SchedulerPolicy.CARS),
+                        r -> 100.0 * r.violationRate()));
+        addPairedComparison(reliabilityStatistics,
+                "Credit exhaustions: UBR-CA - CARS",
+                metric(full, r -> r.creditExhaustions()),
+                metric(all.get(SchedulerPolicy.CARS),
+                        r -> r.creditExhaustions()));
+        addPairedComparison(reliabilityStatistics,
+                "Migrations: UBR-CA - CARS",
+                metric(full, r -> r.migrations()),
+                metric(all.get(SchedulerPolicy.CARS),
+                        r -> r.migrations()));
+        writeTable("table_ix_reliability_significance",
+                List.of("Paired comparison", "Mean difference",
+                        "95% CI", "Paired t-test p",
+                        "Wilcoxon p", "Paired Cohen's d_z"),
+                reliabilityStatistics);
     }
 
+    private static void addPairedComparison(List<List<String>> rows,
+                                            String label,
+                                            List<Double> treatment,
+                                            List<Double> control) {
+        if (treatment.size() < 2 || treatment.size() != control.size()) {
+            rows.add(List.of(label, "N/A", "N/A", "N/A", "N/A", "N/A"));
+            return;
+        }
+        Statistics.PairedComparison comparison = Statistics.compare(treatment,
+                control);
+        rows.add(List.of(label,
+                String.format(Locale.ROOT, "%.3f", comparison.meanDifference()),
+                String.format(Locale.ROOT, "[%.3f, %.3f]",
+                        comparison.confidenceLower(),
+                        comparison.confidenceUpper()),
+                p(comparison.tTestP()), p(comparison.wilcoxonP()),
+                numericOrNa(comparison.pairedCohensDz(), 3)));
+    }
     private List<String> ablationRow(String label, List<SimulationResult> values) {
         return List.of(label,
                 stat(values, SimulationResult::cost, 3),
@@ -447,7 +515,7 @@ public final class ArtifactWriter {
                 List.of(new ChartWriter.Series("UBR-CA",
                         bundle.scalability().stream().map(p -> (double) p.tasks()).toList(),
                         bundle.scalability().stream()
-                                .map(ExperimentRunner.ScalePoint::runtimeSeconds).toList(),
+                                .map(p -> p.runtimeSeconds().mean()).toList(),
                         palette.get(0))), true);
         copyFigure(scalability, figures.resolve("figure_3_scheduler_scalability"));
 
@@ -490,8 +558,8 @@ public final class ArtifactWriter {
                             new ChartWriter.Series("Violation rate", x,
                                     values.stream().map(p -> p.violationRate().mean()).toList(),
                                     palette.get(1)),
-                            new ChartWriter.Series("Exhaustions", x,
-                                    values.stream().map(p -> p.exhaustions().mean()).toList(),
+                            new ChartWriter.Series("Throttled VM-hours", x,
+                                    values.stream().map(p -> p.throttledVmHours().mean()).toList(),
                                     palette.get(4))), false);
             copyFigure(base, figures.resolve("figure_" + (index + 4)
                     + "_sensitivity_" + entry.getKey()));
@@ -693,18 +761,18 @@ public final class ArtifactWriter {
                 2. run the provided Alibaba importer on the intended trace and
                    use the resulting trace-backed table if it supports the claim.
 
-                ## Baseline naming
+                ## Exact-solver boundary
 
-                The implementation is a strict-feasibility branch-and-bound proxy,
-                not a commercial/global MILP optimum for large workflows. Rename
-                the manuscript's `MILP` row to `B&B lower-bound proxy`, or replace
-                it with results from an external exact solver before claiming a
-                global optimum.
+                The internal strict-feasibility diagnostic is not an exact
+                branch-and-bound or MILP solver and is deliberately excluded from
+                publication tables and figures. Do not present it as an optimal
+                baseline. Add an external exact solver only for tractable instances
+                if an optimality-gap claim is required.
 
                 ## Statistical wording
 
                 Table VIII currently tests paired execution cost. A positive
-                Cohen's d means UBR-CA cost is higher. Do not describe those
+                paired Cohen's d_z means UBR-CA cost is higher. Do not describe those
                 comparisons as cost improvements. If the paper claims significance
                 for deadline violations or exhaustion events, report separate
                 metric-specific tests (the raw paired data are in
@@ -718,7 +786,7 @@ public final class ArtifactWriter {
                 100.0 * relativeReduction(heftExhaustion.mean(), ubrExhaustion.mean()),
                 100.0 * relativeReduction(carsExhaustion.mean(), ubrExhaustion.mean()),
                 100.0 * relativeReduction(carsMigration.mean(), ubrMigration.mean()),
-                largest.runtimeSeconds(), largest.tasks(),
+                largest.runtimeSeconds().mean(), largest.tasks(),
                 ubrCost.formatted(3), heftCost.formatted(3), carsCost.formatted(3),
                 -100.0 * relativeReduction(heftCost.mean(), ubrCost.mean()));
         Files.writeString(output.resolve("MANUSCRIPT_GUIDE.md"), guide,
@@ -754,7 +822,14 @@ public final class ArtifactWriter {
     }
 
     private static String p(double value) {
+        if (!Double.isFinite(value)) return "N/A";
         return value < 0.001 ? "<0.001" : String.format(Locale.ROOT, "%.4f", value);
+    }
+
+    private static String numericOrNa(double value, int decimals) {
+        return Double.isFinite(value)
+                ? String.format(Locale.ROOT, "%." + decimals + "f", value)
+                : "N/A";
     }
 
     private static String f(double value) {

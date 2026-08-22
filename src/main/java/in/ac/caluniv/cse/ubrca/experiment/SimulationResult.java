@@ -11,11 +11,19 @@ public record SimulationResult(
         double violationRate,
         double totalLateness,
         int creditExhaustions,
+        double throttledVmSeconds,
+        long robustBoundEvaluations,
+        long robustBoundExceedances,
         int migrations,
         double schedulingRuntimeSeconds,
         int maximumVms,
         double makespan,
         List<CreditPoint> creditTrajectory) {
+
+    public double robustBoundExceedanceRate() {
+        return robustBoundEvaluations == 0L ? 0.0
+                : robustBoundExceedances / (double) robustBoundEvaluations;
+    }
 
     public record CreditPoint(double timeSeconds, double minimum,
                               double mean, double maximum) {}

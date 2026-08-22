@@ -65,6 +65,8 @@ public interface SchedulingPolicy {
 
     /** Utilization variance used to construct robust capacity bounds. */
     default double utilizationVariance(Task task, ExperimentConfig config) {
-        return usesBayesianEstimation() ? task.posteriorVariance : 0.0;
+        return usesBayesianEstimation()
+                ? task.posteriorVariance + config.observationVariance()
+                : 0.0;
     }
 }

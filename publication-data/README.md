@@ -11,6 +11,11 @@ and seed rules recorded here.
 - `config/experiment_config.json`: default manuscript configuration and
   generation timestamp.
 - `config/seed_scheme.csv`: seed schedule for every experiment family.
+- `inputs/*.csv.gz`: exact generated workflow and task inputs supplied to the
+  reported synthetic experiments. Parameter sweeps that alter only scheduler
+  controls reuse the default input archive rather than duplicating task rows.
+- `inputs/manifest.csv`: archive purposes, task-row counts, compressed sizes,
+  and SHA-256 checksums.
 - `raw/overall_results.csv`: six publication policies over 20 paired seeds.
 - `raw/ablation_results.csv`: two ablations plus full UBR-CA over 20 seeds.
 - `raw/stress_results.csv`: light, moderate, and heavy stress results.
@@ -40,9 +45,17 @@ python output-reproduced/scripts/plot_publication_figures.py \
 
 The generator uses Java's deterministic `Random` sequence and the seed rule in
 `config/seed_scheme.csv`. Each workload is generated once per seed and cloned
-for every policy, preserving paired comparisons. The generated task definitions
-are therefore reproducible from source, configuration, and seed without storing
-millions of redundant task rows.
+for every policy, preserving paired comparisons. The archived task definitions
+can be regenerated with:
+
+```bash
+java -jar target/res-ubr-ca-simulator-1.0.0.jar \
+  --full --export-task-inputs --output publication-data
+```
+
+The scalability archives contain the ten measured input repetitions at each
+reported size. The three JVM warm-up workloads per size are excluded because
+they are not observations used in the manuscript results.
 
 Floating-point results may differ in the final digits across JVMs or hardware.
 The manuscript does not use the `scheduler_runtime_seconds` fields from the

@@ -1,5 +1,36 @@
 # Data dictionary
 
+## Generated task-input archives
+
+Files under `inputs/` are gzip-compressed CSV files. Each data row describes
+one generated task; workflow-level fields are repeated so an archive is
+self-contained.
+
+| Column | Definition |
+|---|---|
+| `scenario` | Experiment input set represented by the row. |
+| `repetition_index` | Zero-based repetition within that input set. |
+| `seed` | Deterministic workload-generation seed. |
+| `interval_seconds` | Scheduling interval used for the run. |
+| `stress` | Configured synthetic credit-stress regime. |
+| `configured_workflows` | Requested number of workflows. |
+| `configured_tasks_per_workflow` | Requested nominal tasks per workflow. |
+| `workflow_id` | Generated workflow identifier. |
+| `benchmark` | Synthetic DAG family assigned to the workflow. |
+| `workflow_arrival_seconds` | Workflow release time. |
+| `workflow_deadline_seconds` | Absolute workflow deadline. |
+| `task_id` | Generated task identifier. |
+| `duration_seconds` | Nominal task duration. |
+| `profile_mean_vcpu` | Mean vCPU demand specified by the generated profile. |
+| `pattern` | Generated utilization-pattern family. |
+| `state_size_gb` | Task state size used by migration modeling. |
+| `criticality` | Task criticality class. |
+| `predecessors` | Vertical-bar-separated predecessor task identifiers. |
+
+`inputs/manifest.csv` records the number of data rows, compressed byte count,
+SHA-256 digest, and manuscript purpose of every archive. It is the integrity
+index for the retained generated inputs.
+
 ## Common per-seed result columns
 
 | Column | Definition |

@@ -21,6 +21,17 @@ The full mode uses 20 paired random seeds, as specified in the paper.
 The exact publication datasets are versioned under `publication-data/`, including
 the per-seed raw CSV files, derived table CSV files, experiment configuration,
 seed schedule, provenance notes, and data dictionary.
+
+The exact generated workflow and task inputs can be regenerated without running
+the schedulers:
+
+```bash
+java -jar target/res-ubr-ca-simulator-1.0.0.jar \
+  --full --export-task-inputs --output publication-data
+```
+
+This writes compressed CSV archives and a SHA-256 manifest under
+`publication-data/inputs/`.
 For a fast verification:
 
 ```bash

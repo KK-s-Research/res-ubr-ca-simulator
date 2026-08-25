@@ -1,0 +1,7 @@
+file,data_rows,compressed_bytes,sha256,purpose
+"default_moderate_interval_300.csv.gz",300514,10931435,36cdf509511a07f57109412b1bb0e456a1b7533a3d28571df5e6a2caecb823a3,"Overall, ablation, moderate stress, and default H/epsilon/lambda sweeps"
+"stress_light.csv.gz",300514,10836446,c656ee311e12e1c403f4bb1e1de1ba9f4085adc81014b3a8ee0b0e14d3a4cea0,"Light credit-stress sweep"
+"stress_heavy.csv.gz",300514,10838475,5c983732c471603d3c919e3a7d8882708658150be4f740af0c0ad2f4d29cfdbc,"Heavy credit-stress sweep"
+"interval_60_seconds.csv.gz",300514,10892146,9c9df7f89d1210f1857f120bd1083bfc7a3a73288a5529d1186230a0afa65038,"Scheduling-interval sensitivity at 60 seconds"
+"interval_900_seconds.csv.gz",300514,10890859,949a36f7a29512ae1b4fc2270bf526966871f4e7065ad93659ff2a3126c58a29,"Scheduling-interval sensitivity at 900 seconds"
+"scalability_measured_runs.csv.gz",700940,24812293,9fe63ef64474ef5bf3d38c3b4df53fd8276de0bc29a039879e4c2ece9dfb42b3,"Measured scalability inputs; excluded JVM warm-up inputs are omitted"

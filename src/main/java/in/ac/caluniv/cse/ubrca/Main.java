@@ -1,6 +1,7 @@
 package in.ac.caluniv.cse.ubrca;
 
 import in.ac.caluniv.cse.ubrca.artifact.ArtifactWriter;
+import in.ac.caluniv.cse.ubrca.artifact.TaskInputDatasetWriter;
 import in.ac.caluniv.cse.ubrca.config.ExperimentConfig;
 import in.ac.caluniv.cse.ubrca.experiment.ExperimentRunner;
 import in.ac.caluniv.cse.ubrca.workload.WorkloadGenerator;
@@ -50,6 +51,14 @@ public final class Main {
         }
         ExperimentRunner runner = new ExperimentRunner(config,
                 options.repetitions, options.quick, options.trace);
+        if (options.exportTaskInputs) {
+            Path inputOutput = options.output.resolve("inputs");
+            new TaskInputDatasetWriter().write(config, options.repetitions,
+                    options.quick, inputOutput);
+            System.out.println("Complete. Generated task inputs: "
+                    + inputOutput.toAbsolutePath());
+            return;
+        }
         if (options.scalabilityOnly) {
             new ArtifactWriter(options.output).writeScalabilityStudy(
                     runner.runScalability());
@@ -80,6 +89,7 @@ public final class Main {
                   --output DIR       artifact directory (default: output)
                   --trace FILE.csv   import real trace/DAG data
                   --scalability-only  run only the replicated scalability study
+                  --export-task-inputs materialize manuscript synthetic task inputs only
                   --help             show this message
                 """);
     }
@@ -92,6 +102,7 @@ public final class Main {
         private Path trace;
         private boolean help;
         private boolean scalabilityOnly;
+        private boolean exportTaskInputs;
         private Integer workflows;
         private Integer tasksPerWorkflow;
         private WorkloadGenerator.Stress stress;
@@ -130,7 +141,9 @@ public final class Main {
                             Path.of(requireValue(args, ++i, "--output"));
                     case "--trace" -> value.trace =
                             Path.of(requireValue(args, ++i, "--trace"));
-                    case "--scalability-only" -> value.scalabilityOnly = true;                    default -> throw new IllegalArgumentException(
+                    case "--scalability-only" -> value.scalabilityOnly = true;
+                    case "--export-task-inputs" -> value.exportTaskInputs = true;
+                    default -> throw new IllegalArgumentException(
                             "Unknown option: " + args[i] + " (use --help)");
                 }
             }

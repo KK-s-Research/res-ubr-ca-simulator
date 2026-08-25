@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-08-22T12:50:07.415245700+05:30",
+  "workload_source": "benchmark-shaped synthetic DAGs with step, ramp, bursty, and trace-driven utilization",
+  "repetitions": 20,
+  "java_version": "25.0.3",
+  "interval_seconds": 300.0,
+  "lookahead_horizon": 2,
+  "epsilon": 0.0500,
+  "confidence_level": 0.9500,
+  "lateness_lambda": 100.0,
+  "observation_variance": 0.022500,
+  "prior_variance": 0.040000,
+  "minimum_credits": 6.000,
+  "safe_credits": 12.000,
+  "workflows_per_run": 30,
+  "nominal_tasks_per_workflow": 500,
+  "deadline_factor": 1.550,
+  "default_stress": "MODERATE"
+}

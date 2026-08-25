@@ -18,6 +18,9 @@ java -Djava.awt.headless=true -jar target/res-ubr-ca-simulator-1.0.0.jar --full
 ```
 
 The full mode uses 20 paired random seeds, as specified in the paper.
+The exact publication datasets are versioned under `publication-data/`, including
+the per-seed raw CSV files, derived table CSV files, experiment configuration,
+seed schedule, provenance notes, and data dictionary.
 For a fast verification:
 
 ```bash
@@ -65,6 +68,11 @@ The output directory contains:
 - `experiment_config.json`: the complete run configuration and workload
   provenance.
 - `RESULTS.md`: a concise result summary and interpretation boundary.
+
+The generated `output*` directories remain ignored because they contain
+duplicate figures, scripts, and temporary artifacts. The compact, authoritative
+CSV dataset used by the manuscript is committed separately in
+`publication-data/`.
 
 Sensitivity to the scheduling interval is reported using throttled VM-hours,
 a duration-based metric that is comparable across interval lengths; exhaustion

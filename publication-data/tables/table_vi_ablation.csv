@@ -1,0 +1,4 @@
+"Variant","Cost (USD)","Violations (%)","Exhaustions","Migrations"
+"UBR-CA without migration","146.209 ± 2.372","0.00 ± 0.00","242.80 ± 12.23","0.00 ± 0.00"
+"UBR-CA without Bayesian learning","150.336 ± 2.106","0.00 ± 0.00","92.95 ± 9.07","1161.25 ± 75.28"
+"Full UBR-CA","151.392 ± 2.309","0.00 ± 0.00","1.45 ± 1.39","787.40 ± 47.04"

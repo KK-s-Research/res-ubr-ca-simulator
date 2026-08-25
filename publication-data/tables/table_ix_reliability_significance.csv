@@ -1,0 +1,5 @@
+"Paired comparison","Mean difference","95% CI","Paired t-test p","Wilcoxon p","Paired Cohen's d_z"
+"Deadline violations (%): UBR-CA - HEFT","-67.333","[-77.701, -56.965]","<0.001","<0.001","-3.039"
+"Deadline violations (%): UBR-CA - CARS","0.000","[0.000, 0.000]","N/A","N/A","N/A"
+"Credit exhaustions: UBR-CA - CARS","-168.100","[-172.216, -163.984]","<0.001","<0.001","-19.112"
+"Migrations: UBR-CA - CARS","-984.300","[-1018.811, -949.789]","<0.001","<0.001","-13.348"

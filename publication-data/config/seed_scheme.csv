@@ -1,0 +1,25 @@
+experiment,parameter,value,repetitions,seed_rule
+overall,default,MODERATE,20,20260703 + repetition_index * 7919; index 0..19
+ablation,default,MODERATE,20,20260703 + repetition_index * 7919; index 0..19
+stress,stress,LIGHT,20,20260703 + repetition_index * 7919; index 0..19
+stress,stress,MODERATE,20,20260703 + repetition_index * 7919; index 0..19
+stress,stress,HEAVY,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,interval_seconds,60,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,interval_seconds,300,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,interval_seconds,900,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,lookahead_H,1,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,lookahead_H,2,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,lookahead_H,4,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,epsilon,0.01,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,epsilon,0.05,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,epsilon,0.10,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,lateness_lambda,10,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,lateness_lambda,100,20,20260703 + repetition_index * 7919; index 0..19
+sensitivity,lateness_lambda,1000,20,20260703 + repetition_index * 7919; index 0..19
+scalability,tasks,50,10,20260703 + 50 + repetition_index * 7919; index 0..9
+scalability,tasks,200,10,20260703 + 200 + repetition_index * 7919; index 0..9
+scalability,tasks,500,10,20260703 + 500 + repetition_index * 7919; index 0..9
+scalability,tasks,2000,10,20260703 + 2000 + repetition_index * 7919; index 0..9
+scalability,tasks,5000,10,20260703 + 5000 + repetition_index * 7919; index 0..9
+scalability,tasks,10000,10,20260703 + 10000 + repetition_index * 7919; index 0..9
+scalability,tasks,50000,10,20260703 + 50000 + repetition_index * 7919; index 0..9
